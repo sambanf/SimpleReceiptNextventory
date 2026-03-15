@@ -9,12 +9,28 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
-        <EditText
-            android:id="@+id/headerText"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Nextventory Store"
-            android:hint="Store Name"/>
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <EditText
+                android:id="@+id/headerText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Nextventory Store"
+                android:hint="Store Name"/>
+
+            <ImageView
+                android:id="@+id/storeLogo"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="8dp"
+                android:src="@mipmap/ic_launcher"
+                android:contentDescription="Store Logo"/>
+        </LinearLayout>
 
         <EditText
             android:id="@+id/itemText"
@@ -50,12 +66,20 @@
             android:layout_marginTop="16dp"/>
 
         <TextView
-            android:id="@+id/itemListPreview"
+            android:id="@+id/previewLabel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="No items yet"
-            android:padding="10dp"
-            android:textSize="16sp"/>
+            android:text="Items Preview:"
+            android:layout_marginTop="20dp"
+            android:textStyle="bold"
+            android:textSize="18sp"/>
+
+        <LinearLayout
+            android:id="@+id/itemsContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="10dp" />
 
         <Button
             android:id="@+id/clearAllButton"
@@ -64,18 +88,6 @@
             android:text="Clear All Items"
             android:layout_marginTop="10dp"/>
 
-        <EditText
-            android:id="@+id/removeIndexText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Item number to remove"
-            android:inputType="number"/>
-
-        <Button
-            android:id="@+id/removeItemButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Remove Item"/>
     </LinearLayout>
 
 </ScrollView>
