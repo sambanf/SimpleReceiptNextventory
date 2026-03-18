@@ -3,19 +3,38 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
-    app:startDestination="@id/FirstFragment">
+    app:startDestination="@id/MenuFragment">
 
     <fragment
-        android:id="@+id/FirstFragment"
-        android:name="com.blankpoof.nextventory.FirstFragment"
+        android:id="@+id/MenuFragment"
+        android:name="com.blankpoof.nextventory.MenuFragment"
+        android:label="Main Menu"
+        tools:layout="@layout/fragment_menu">
+        <action
+            android:id="@+id/action_MenuFragment_to_PrintReceiptFragment"
+            app:destination="@id/PrintReceiptFragment" />
+        <action
+            android:id="@+id/action_MenuFragment_to_StockManagementFragment"
+            app:destination="@id/StockManagementFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/StockManagementFragment"
+        android:name="com.blankpoof.nextventory.StockManagementFragment"
+        android:label="Stock Management"
+        tools:layout="@layout/fragment_stock_management" />
+
+    <fragment
+        android:id="@+id/PrintReceiptFragment"
+        android:name="com.blankpoof.nextventory.PrintReceiptFragment"
         android:label="@string/first_fragment_label"
-        tools:layout="@layout/fragment_first">
+        tools:layout="@layout/fragment_printreceipt">
 
         <action
-            android:id="@+id/action_FirstFragment_to_SecondFragment"
+            android:id="@+id/action_PrintReceiptFragment_to_SecondFragment"
             app:destination="@id/SecondFragment" />
         <action
-            android:id="@+id/action_FirstFragment_to_SettingsFragment"
+            android:id="@+id/action_PrintReceiptFragment_to_SettingsFragment"
             app:destination="@id/SettingsFragment" />
     </fragment>
     <fragment
@@ -25,8 +44,8 @@
         tools:layout="@layout/fragment_second">
 
         <action
-            android:id="@+id/action_SecondFragment_to_FirstFragment"
-            app:destination="@id/FirstFragment" />
+            android:id="@+id/action_SecondFragment_to_PrintReceiptFragment"
+            app:destination="@id/PrintReceiptFragment" />
     </fragment>
     <fragment
         android:id="@+id/SettingsFragment"
