@@ -11,18 +11,25 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import com.blankpoof.nextventory.databinding.FragmentStockManagementBinding
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
 import com.google.zxing.common.BitMatrix
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
+import org.json.JSONObject
 import java.util.UUID
 import kotlin.concurrent.thread
 
@@ -31,11 +38,53 @@ class StockManagementFragment : Fragment() {
     private var _binding: FragmentStockManagementBinding? = null
     private val binding get() = _binding!!
 
-    private val stockItems = mutableListOf<StockItem>()
+    private val viewModel: StockViewModel by activityViewModels()
     private lateinit var adapter: StockAdapter
 
     private val printerUUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
     private val requestBluetooth = 100
+
+    private var isFabMenuOpen = false
+
+    private val barcodeLauncher: ActivityResultLauncher<ScanOptions> = registerForActivityResult(
+        ScanContract()
+    ) { result ->
+        if (result.contents != null) {
+            // Use Handler to delay dialog to allow focus transitions to finish
+            Handler(Looper.getMainLooper()).postDelayed({
+                processScanResult(result.contents)
+            }, 500)
+        }
+    }
+
+    private fun processScanResult(contents: String) {
+        try {
+            val json = JSONObject(contents)
+            val id = json.optString("id", "")
+            val name = json.optString("name", "")
+            val qty = json.optInt("qty", 0)
+            val price = json.optDouble("price", 0.0)
+            
+            if (id.isNotEmpty()) {
+                val existingItem = viewModel.stockItems.find { it.id == id }
+                if (existingItem != null) {
+                    showEditItemDialog(existingItem)
+                } else {
+                    showAddItemDialog(id, name, qty, price)
+                }
+            } else {
+                showAddItemDialog(initialName = name, initialQty = qty, initialPrice = price)
+            }
+        } catch (e: Exception) {
+            val rawValue = contents
+            val existingItem = viewModel.stockItems.find { it.id == rawValue }
+            if (existingItem != null) {
+                showEditItemDialog(existingItem)
+            } else {
+                showAddItemDialog(initialName = rawValue)
+            }
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -48,7 +97,7 @@ class StockManagementFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        adapter = StockAdapter(stockItems) { item ->
+        adapter = StockAdapter(viewModel.stockItems) { item ->
             if (hasBluetoothPermission()) {
                 printQrCode(item)
             } else {
@@ -57,18 +106,77 @@ class StockManagementFragment : Fragment() {
         }
         binding.recyclerViewStock.adapter = adapter
 
-        binding.fabAddItem.setOnClickListener {
+        setupFabMenu()
+    }
+
+    private fun setupFabMenu() {
+        binding.fabMain.setOnClickListener {
+            if (isFabMenuOpen) closeFabMenu() else openFabMenu()
+        }
+
+        binding.fabAddItemManual.setOnClickListener {
+            closeFabMenu()
             showAddItemDialog()
+        }
+
+        binding.fabScanQr.setOnClickListener {
+            closeFabMenu()
+            startQrScanner()
         }
     }
 
-    private fun showAddItemDialog() {
+    private fun openFabMenu() {
+        isFabMenuOpen = true
+        binding.fabMain.animate().rotation(45f)
+        binding.fabAddItemManual.visibility = View.VISIBLE
+        binding.labelAddManual.visibility = View.VISIBLE
+        binding.fabScanQr.visibility = View.VISIBLE
+        binding.labelScanQr.visibility = View.VISIBLE
+        
+        binding.fabAddItemManual.animate().translationY(-resources.getDimension(R.dimen.standard_55))
+        binding.labelAddManual.animate().translationY(-resources.getDimension(R.dimen.standard_55))
+        binding.fabScanQr.animate().translationY(-resources.getDimension(R.dimen.standard_105))
+        binding.labelScanQr.animate().translationY(-resources.getDimension(R.dimen.standard_105))
+    }
+
+    private fun closeFabMenu() {
+        isFabMenuOpen = false
+        binding.fabMain.animate().rotation(0f)
+        binding.fabAddItemManual.animate().translationY(0f)
+        binding.labelAddManual.animate().translationY(0f)
+        binding.fabScanQr.animate().translationY(0f).withEndAction {
+            if (!isFabMenuOpen) {
+                binding.fabAddItemManual.visibility = View.GONE
+                binding.labelAddManual.visibility = View.GONE
+                binding.fabScanQr.visibility = View.GONE
+                binding.labelScanQr.visibility = View.GONE
+            }
+        }
+        binding.labelScanQr.animate().translationY(0f)
+    }
+
+    private fun startQrScanner() {
+        val options = ScanOptions()
+        options.setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+        options.setPrompt("Scan Item QR Code")
+        options.setBeepEnabled(false)
+        options.setBarcodeImageEnabled(true)
+        options.setOrientationLocked(true) // Lock orientation to prevent reset
+        barcodeLauncher.launch(options)
+    }
+
+    private fun showAddItemDialog(initialId: String? = null, initialName: String = "", initialQty: Int = 0, initialPrice: Double = 0.0) {
+        if (!isAdded) return
         val dialogView = LayoutInflater.from(context).inflate(R.layout.dialog_add_stock_item, null)
         val nameEditText = dialogView.findViewById<EditText>(R.id.editTextItemName)
         val quantityEditText = dialogView.findViewById<EditText>(R.id.editTextItemQuantity)
         val priceEditText = dialogView.findViewById<EditText>(R.id.editTextItemPrice)
 
-        AlertDialog.Builder(context)
+        nameEditText.setText(initialName)
+        if (initialQty > 0) quantityEditText.setText(initialQty.toString())
+        if (initialPrice > 0.0) priceEditText.setText(initialPrice.toString())
+
+        AlertDialog.Builder(requireContext())
             .setTitle("Add Stock Item")
             .setView(dialogView)
             .setPositiveButton("Add") { _, _ ->
@@ -77,8 +185,45 @@ class StockManagementFragment : Fragment() {
                 val price = priceEditText.text.toString().toDoubleOrNull() ?: 0.0
 
                 if (name.isNotEmpty()) {
-                    stockItems.add(StockItem(name = name, quantity = quantity, price = price))
-                    adapter.notifyItemInserted(stockItems.size - 1)
+                    val newItem = StockItem(
+                        id = initialId ?: UUID.randomUUID().toString(),
+                        name = name,
+                        quantity = quantity,
+                        price = price
+                    )
+                    viewModel.stockItems.add(newItem)
+                    adapter.notifyItemInserted(viewModel.stockItems.size - 1)
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showEditItemDialog(item: StockItem) {
+        if (!isAdded) return
+        val dialogView = LayoutInflater.from(context).inflate(R.layout.dialog_add_stock_item, null)
+        val nameEditText = dialogView.findViewById<EditText>(R.id.editTextItemName)
+        val quantityEditText = dialogView.findViewById<EditText>(R.id.editTextItemQuantity)
+        val priceEditText = dialogView.findViewById<EditText>(R.id.editTextItemPrice)
+
+        nameEditText.setText(item.name)
+        quantityEditText.setText(item.quantity.toString())
+        priceEditText.setText(item.price.toString())
+
+        AlertDialog.Builder(requireContext())
+            .setTitle("Edit Stock Item")
+            .setView(dialogView)
+            .setPositiveButton("Update") { _, _ ->
+                val name = nameEditText.text.toString()
+                val quantity = quantityEditText.text.toString().toIntOrNull() ?: 0
+                val price = priceEditText.text.toString().toDoubleOrNull() ?: 0.0
+
+                if (name.isNotEmpty()) {
+                    val index = viewModel.stockItems.indexOf(item)
+                    if (index != -1) {
+                        viewModel.stockItems[index] = item.copy(name = name, quantity = quantity, price = price)
+                        adapter.notifyItemChanged(index)
+                    }
                 }
             }
             .setNegativeButton("Cancel", null)
@@ -95,11 +240,12 @@ class StockManagementFragment : Fragment() {
     }
 
     private fun requestBluetoothPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            ActivityCompat.requestPermissions(requireActivity(), arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN), requestBluetooth)
+        val perms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN)
         } else {
-            ActivityCompat.requestPermissions(requireActivity(), arrayOf(Manifest.permission.BLUETOOTH), requestBluetooth)
+            arrayOf(Manifest.permission.BLUETOOTH)
         }
+        ActivityCompat.requestPermissions(requireActivity(), perms, requestBluetooth)
     }
 
     @SuppressLint("MissingPermission")
@@ -107,92 +253,60 @@ class StockManagementFragment : Fragment() {
         thread {
             try {
                 val sharedPref = requireActivity().getPreferences(Context.MODE_PRIVATE)
-                val printerAddress = sharedPref.getString("selected_printer_address", null)
-
-                if (printerAddress == null) {
-                    requireActivity().runOnUiThread {
-                        Toast.makeText(context, "Please select a printer in settings first", Toast.LENGTH_SHORT).show()
-                    }
-                    return@thread
-                }
+                val printerAddress = sharedPref.getString("selected_printer_address", null) ?: return@thread
 
                 val bluetoothManager = requireContext().getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-                val adapter = bluetoothManager.adapter
-                val device = adapter?.getRemoteDevice(printerAddress) ?: return@thread
-
-                val socket: BluetoothSocket = device.createRfcommSocketToServiceRecord(printerUUID)
+                val device = bluetoothManager.adapter?.getRemoteDevice(printerAddress) ?: return@thread
+                val socket = device.createRfcommSocketToServiceRecord(printerUUID)
                 socket.connect()
 
                 val output = socket.outputStream
+                output.write(byteArrayOf(0x1B, 0x40)) // Init
+                Thread.sleep(150)
 
-                // 1. Initialize printer and wait
-                output.write(byteArrayOf(0x1B, 0x40))
-                Thread.sleep(200)
-
-                // 2. Generate a slightly smaller QR Code for better compatibility
-                val qrBitmap = generateQrCode(item.id, 256)
+                val qrData = JSONObject().apply { put("id", item.id); put("name", item.name) }.toString()
+                val qrBitmap = generateQrCode(qrData, 256)
+                
                 if (qrBitmap != null) {
                     val command = decodeBitmap(qrBitmap)
+                    output.write(byteArrayOf(0x1B, 0x61, 0x01)) // Center
                     
-                    // 3. Center alignment
-                    output.write(byteArrayOf(0x1B, 0x61, 0x01)) 
-                    output.flush()
-                    Thread.sleep(50)
-
-                    // 4. Send the bitmap in larger chunks but with consistent delays
-                    val chunkSize = 2048
+                    val chunkSize = 512
                     var offset = 0
                     while (offset < command.size) {
                         val length = minOf(chunkSize, command.size - offset)
                         output.write(command, offset, length)
                         output.flush()
                         offset += length
-                        Thread.sleep(50) // More generous delay for printer buffer
+                        Thread.sleep(60)
                     }
                     
-                    // 5. Reset alignment and print text
-                    output.write(byteArrayOf(0x1B, 0x61, 0x00)) // Left alignment
-                    output.write(byteArrayOf(0x0A)) // New line
-                    output.write("${item.name}\n".toByteArray())
-                    output.write("ID: ${item.id}\n".toByteArray())
-                    output.write(byteArrayOf(0x0A, 0x0A, 0x0A)) // Feed
+                    output.write(byteArrayOf(0x0A)) // LF
+                    output.write(byteArrayOf(0x1B, 0x61, 0x00)) // Left
+                    output.write("${item.name}\nID: ${item.id}\n\n\n".toByteArray())
                 }
 
-                // 6. Final reset and CRITICAL: Wait for printer to finish mechanical printing
-                output.write(byteArrayOf(0x1B, 0x40))
+                output.write(byteArrayOf(0x1B, 0x40)) // Final Reset
                 output.flush()
-                Thread.sleep(2000) // 2 seconds delay to ensure data is processed
-
-                output.close()
+                Thread.sleep(1500)
                 socket.close()
-
             } catch (e: Exception) {
-                e.printStackTrace()
-                requireActivity().runOnUiThread {
-                    Toast.makeText(context, "Printing failed: ${e.message}", Toast.LENGTH_SHORT).show()
-                }
+                requireActivity().runOnUiThread { Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show() }
             }
         }
     }
 
     private fun generateQrCode(text: String, size: Int): Bitmap? {
         return try {
-            val bitMatrix: BitMatrix = MultiFormatWriter().encode(text, BarcodeFormat.QR_CODE, size, size)
-            val width = bitMatrix.width
-            val height = bitMatrix.height
-            val pixels = IntArray(width * height)
-            for (y in 0 until height) {
-                for (x in 0 until width) {
-                    pixels[y * width + x] = if (bitMatrix.get(x, y)) Color.BLACK else Color.WHITE
+            val bitMatrix = MultiFormatWriter().encode(text, BarcodeFormat.QR_CODE, size, size)
+            val pixels = IntArray(size * size)
+            for (y in 0 until size) {
+                for (x in 0 until size) {
+                    pixels[y * size + x] = if (bitMatrix.get(x, y)) Color.BLACK else Color.WHITE
                 }
             }
-            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565)
-            bitmap.setPixels(pixels, 0, width, 0, 0, width, height)
-            bitmap
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
+            Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565).apply { setPixels(pixels, 0, size, 0, 0, size, size) }
+        } catch (e: Exception) { null }
     }
 
     private fun decodeBitmap(bmp: Bitmap): ByteArray {
@@ -203,15 +317,9 @@ class StockManagementFragment : Fragment() {
         bmp.getPixels(bwPx, 0, width, 0, 0, width, height)
 
         val data = mutableListOf<Byte>()
-        // GS v 0 m xL xH yL yH
-        data.add(0x1D.toByte())
-        data.add(0x76.toByte())
-        data.add(0x30.toByte())
-        data.add(0.toByte())
-        data.add((widthInBytes % 256).toByte())
-        data.add((widthInBytes / 256).toByte())
-        data.add((height % 256).toByte())
-        data.add((height / 256).toByte())
+        data.add(0x1D.toByte()); data.add(0x76.toByte()); data.add(0x30.toByte()); data.add(0.toByte())
+        data.add((widthInBytes % 256).toByte()); data.add((widthInBytes / 256).toByte())
+        data.add((height % 256).toByte()); data.add((height / 256).toByte())
 
         for (i in 0 until height) {
             for (j in 0 until widthInBytes) {
@@ -221,9 +329,7 @@ class StockManagementFragment : Fragment() {
                     if (x < width) {
                         val pixel = bwPx[i * width + x]
                         val gray = (Color.red(pixel) + Color.green(pixel) + Color.blue(pixel)) / 3
-                        if (gray < 128) { // Black
-                            byteVal = byteVal or (1 shl (7 - k))
-                        }
+                        if (gray < 128) byteVal = byteVal or (1 shl (7 - k))
                     }
                 }
                 data.add(byteVal.toByte())

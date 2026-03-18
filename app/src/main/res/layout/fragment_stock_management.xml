@@ -13,12 +13,67 @@
         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
         tools:listitem="@layout/item_stock" />
 
+    <!-- SCAN QR FAB (Hidden by default) -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fab_add_item"
+        android:id="@+id/fab_scan_qr"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:contentDescription="Scan QR"
+        android:visibility="invisible"
+        app:fabSize="mini"
+        app:layout_constraintBottom_toTopOf="@id/fab_add_item_manual"
+        app:layout_constraintEnd_toEndOf="@id/fab_add_item_manual"
+        app:srcCompat="@drawable/ic_scan_qr" />
+
+    <TextView
+        android:id="@+id/label_scan_qr"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:background="@drawable/bg_fab_label"
+        android:elevation="4dp"
+        android:text="Scan QR"
+        android:textColor="?attr/colorOnSurface"
+        android:visibility="invisible"
+        app:layout_constraintBottom_toBottomOf="@id/fab_scan_qr"
+        app:layout_constraintEnd_toStartOf="@id/fab_scan_qr"
+        app:layout_constraintTop_toTopOf="@id/fab_scan_qr" />
+
+    <!-- ADD MANUAL FAB (Hidden by default) -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fab_add_item_manual"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:contentDescription="Add Manual"
+        android:visibility="invisible"
+        app:fabSize="mini"
+        app:layout_constraintBottom_toTopOf="@id/fab_main"
+        app:layout_constraintEnd_toEndOf="@id/fab_main"
+        app:srcCompat="@android:drawable/ic_menu_edit" />
+
+    <TextView
+        android:id="@+id/label_add_manual"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:background="@drawable/bg_fab_label"
+        android:elevation="4dp"
+        android:text="Add Item"
+        android:textColor="?attr/colorOnSurface"
+        android:visibility="invisible"
+        app:layout_constraintBottom_toBottomOf="@id/fab_add_item_manual"
+        app:layout_constraintEnd_toStartOf="@id/fab_add_item_manual"
+        app:layout_constraintTop_toTopOf="@id/fab_add_item_manual" />
+
+    <!-- MAIN FAB -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fab_main"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_margin="16dp"
-        android:contentDescription="Add Stock Item"
+        android:contentDescription="Main Action"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:srcCompat="@android:drawable/ic_input_add" />
