@@ -31,21 +31,8 @@
         tools:layout="@layout/fragment_printreceipt">
 
         <action
-            android:id="@+id/action_PrintReceiptFragment_to_SecondFragment"
-            app:destination="@id/SecondFragment" />
-        <action
             android:id="@+id/action_PrintReceiptFragment_to_SettingsFragment"
             app:destination="@id/SettingsFragment" />
-    </fragment>
-    <fragment
-        android:id="@+id/SecondFragment"
-        android:name="com.blankpoof.nextventory.SecondFragment"
-        android:label="@string/second_fragment_label"
-        tools:layout="@layout/fragment_second">
-
-        <action
-            android:id="@+id/action_SecondFragment_to_PrintReceiptFragment"
-            app:destination="@id/PrintReceiptFragment" />
     </fragment>
     <fragment
         android:id="@+id/SettingsFragment"
