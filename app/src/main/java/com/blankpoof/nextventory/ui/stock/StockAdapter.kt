@@ -1,13 +1,15 @@
-package com.blankpoof.nextventory
+package com.blankpoof.nextventory.ui.stock
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
+import com.blankpoof.nextventory.data.model.StockItem
 import com.blankpoof.nextventory.databinding.ItemStockBinding
 
 class StockAdapter(
     private val items: List<StockItem>,
-    private val onPrintQrClick: (StockItem) -> Unit
+    private val onPrintQrClick: (StockItem) -> Unit,
+    private val onEditClick: (StockItem) -> Unit
 ) : RecyclerView.Adapter<StockAdapter.StockViewHolder>() {
 
     class StockViewHolder(val binding: ItemStockBinding) : RecyclerView.ViewHolder(binding.root)
@@ -26,6 +28,10 @@ class StockAdapter(
         
         holder.binding.buttonPrintQr.setOnClickListener {
             onPrintQrClick(item)
+        }
+
+        holder.binding.buttonEditItem.setOnClickListener {
+            onEditClick(item)
         }
     }
 

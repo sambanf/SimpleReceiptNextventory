@@ -1,8 +1,7 @@
-package com.blankpoof.nextventory
+package com.blankpoof.nextventory.ui.receipt
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothSocket
 import android.content.Context
@@ -25,7 +24,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import com.blankpoof.nextventory.databinding.FragmentFirstBinding
+import com.blankpoof.nextventory.data.model.ReceiptItem
+import com.blankpoof.nextventory.databinding.FragmentPrintreceiptBinding
 import com.blankpoof.nextventory.databinding.ItemReceiptBinding
 import java.io.InputStream
 import java.text.DecimalFormat
@@ -35,9 +35,9 @@ import java.util.Locale
 import java.util.UUID
 import kotlin.concurrent.thread
 
-class FirstFragment : Fragment() {
+class PrintReceiptFragment : Fragment() {
 
-    private var _binding: FragmentFirstBinding? = null
+    private var _binding: FragmentPrintreceiptBinding? = null
     private val binding get() = _binding!!
 
     private val items = mutableListOf<ReceiptItem>()
@@ -49,7 +49,6 @@ class FirstFragment : Fragment() {
 
     private var editingIndex: Int? = null
 
-    // Format for thousands separator
     private val decimalFormat = DecimalFormat("#,###.##")
 
     private var selectedLogoUri: Uri? = null
@@ -67,7 +66,7 @@ class FirstFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
 
-        _binding = FragmentFirstBinding.inflate(inflater, container, false)
+        _binding = FragmentPrintreceiptBinding.inflate(inflater, container, false)
         return binding.root
     }
 
@@ -80,7 +79,6 @@ class FirstFragment : Fragment() {
             pickImageLauncher.launch("image/*")
         }
 
-        // ADD OR UPDATE ITEM
         binding.addItemButton.setOnClickListener {
 
             val name = binding.itemText.text.toString()
@@ -105,7 +103,6 @@ class FirstFragment : Fragment() {
             updatePreview()
         }
 
-        // CLEAR ALL
         binding.clearAllButton.setOnClickListener {
 
             items.clear()
@@ -114,7 +111,6 @@ class FirstFragment : Fragment() {
             updatePreview()
         }
 
-        // PRINT RECEIPT
         binding.buttonFirst.setOnClickListener {
 
             val header = binding.headerText.text.toString()
@@ -262,38 +258,44 @@ class FirstFragment : Fragment() {
 
                 val output = socket.outputStream
 
-                // Reset printer
                 output.write(byteArrayOf(0x1B, 0x40))
+                Thread.sleep(100)
 
-                // Print logo if selected
                 selectedLogoUri?.let { uri ->
                     val inputStream: InputStream? = requireContext().contentResolver.openInputStream(uri)
                     val bitmap = BitmapFactory.decodeStream(inputStream)
                     if (bitmap != null) {
-                        val printerBitmap = resizeAndGrayScale(bitmap, 384) // standard 58mm width
+                        val printerBitmap = resizeAndGrayScale(bitmap, 384)
                         val command = decodeBitmap(printerBitmap)
-                        output.write(byteArrayOf(0x1B, 0x61, 0x01)) // Center alignment
-                        output.write(command)
-                        output.write(byteArrayOf(0x0A)) // New line
+                        output.write(byteArrayOf(0x1B, 0x61, 0x01))
+                        
+                        val chunkSize = 1024
+                        var offset = 0
+                        while (offset < command.size) {
+                            val length = minOf(chunkSize, command.size - offset)
+                            output.write(command, offset, length)
+                            output.flush()
+                            offset += length
+                            Thread.sleep(20)
+                        }
+                        
+                        output.write(byteArrayOf(0x0A))
+                        Thread.sleep(100)
                     }
                     inputStream?.close()
                 }
 
                 var subtotal = 0.0
-
                 val receiptBuilder = StringBuilder()
-
-                // Thermal printer width is usually 32 characters for standard fonts
                 val lineLength = 32
                 val itemColWidth = 10
 
-                // Current date and time
                 val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
                 val currentDateAndTime: String = sdf.format(Date())
 
-                output.write(byteArrayOf(0x1B, 0x61, 0x01)) // Center alignment
+                output.write(byteArrayOf(0x1B, 0x61, 0x01))
                 output.write("$header\n".toByteArray())
-                output.write(byteArrayOf(0x1B, 0x61, 0x00)) // Left alignment
+                output.write(byteArrayOf(0x1B, 0x61, 0x00))
                 
                 receiptBuilder.appendLine("Date: $currentDateAndTime")
                 receiptBuilder.appendLine("-".repeat(lineLength))
@@ -330,8 +332,10 @@ class FirstFragment : Fragment() {
                 receiptBuilder.appendLine("\n\n")
 
                 output.write(receiptBuilder.toString().toByteArray())
-
+                output.write(byteArrayOf(0x1B, 0x40))
                 output.flush()
+                Thread.sleep(500)
+                
                 output.close()
                 socket.close()
 
@@ -366,41 +370,34 @@ class FirstFragment : Fragment() {
     private fun decodeBitmap(bmp: Bitmap): ByteArray {
         val width = bmp.width
         val height = bmp.height
+        val widthInBytes = (width + 7) / 8
         val bwPx = IntArray(width * height)
         bmp.getPixels(bwPx, 0, width, 0, 0, width, height)
 
         val data = mutableListOf<Byte>()
-        // GS v 0 m xL xH yL yH d1...dk
-        val m = 0
-        val xL = (width / 8) % 256
-        val xH = (width / 8) / 256
-        val yL = height % 256
-        val yH = height / 256
-
         data.add(0x1D.toByte())
         data.add(0x76.toByte())
         data.add(0x30.toByte())
-        data.add(m.toByte())
-        data.add(xL.toByte())
-        data.add(xH.toByte())
-        data.add(yL.toByte())
-        data.add(yH.toByte())
+        data.add(0.toByte())
+        data.add((widthInBytes % 256).toByte())
+        data.add((widthInBytes / 256).toByte())
+        data.add((height % 256).toByte())
+        data.add((height / 256).toByte())
 
-        var byteVal = 0
-        var bitIndex = 0
         for (i in 0 until height) {
-            for (j in 0 until width) {
-                val pixel = bwPx[i * width + j]
-                val gray = (Color.red(pixel) + Color.green(pixel) + Color.blue(pixel)) / 3
-                if (gray < 128) {
-                    byteVal = byteVal or (1 shl (7 - bitIndex))
+            for (j in 0 until widthInBytes) {
+                var byteVal = 0
+                for (k in 0 until 8) {
+                    val x = j * 8 + k
+                    if (x < width) {
+                        val pixel = bwPx[i * width + x]
+                        val gray = (Color.red(pixel) + Color.green(pixel) + Color.blue(pixel)) / 3
+                        if (gray < 128) {
+                            byteVal = byteVal or (1 shl (7 - k))
+                        }
+                    }
                 }
-                bitIndex++
-                if (bitIndex == 8) {
-                    data.add(byteVal.toByte())
-                    byteVal = 0
-                    bitIndex = 0
-                }
+                data.add(byteVal.toByte())
             }
         }
         return data.toByteArray()

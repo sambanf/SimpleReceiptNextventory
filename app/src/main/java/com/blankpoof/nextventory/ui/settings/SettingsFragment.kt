@@ -1,4 +1,4 @@
-package com.blankpoof.nextventory
+package com.blankpoof.nextventory.ui.settings
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -18,6 +18,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.blankpoof.nextventory.databinding.FragmentSettingsBinding
+import com.blankpoof.nextventory.ui.common.BluetoothDeviceAdapter
 
 class SettingsFragment : Fragment() {
 
@@ -100,7 +101,6 @@ class SettingsFragment : Fragment() {
     @SuppressLint("MissingPermission")
     private fun onDeviceSelected(device: BluetoothDevice) {
         Toast.makeText(context, "Selected: ${device.name} (${device.address})", Toast.LENGTH_SHORT).show()
-        // Save selected device address to SharedPreferences for future use
         val sharedPref = requireActivity().getPreferences(Context.MODE_PRIVATE) ?: return
         with(sharedPref.edit()) {
             putString("selected_printer_address", device.address)

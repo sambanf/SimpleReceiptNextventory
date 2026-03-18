@@ -1,4 +1,4 @@
-package com.blankpoof.nextventory
+package com.blankpoof.nextventory.data.model
 
 import java.util.UUID
 

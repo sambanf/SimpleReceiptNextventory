@@ -1,4 +1,4 @@
-package com.blankpoof.nextventory
+package com.blankpoof.nextventory.ui.stock
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -23,6 +23,8 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import com.blankpoof.nextventory.R
+import com.blankpoof.nextventory.data.model.StockItem
 import com.blankpoof.nextventory.databinding.FragmentStockManagementBinding
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
@@ -50,7 +52,6 @@ class StockManagementFragment : Fragment() {
         ScanContract()
     ) { result ->
         if (result.contents != null) {
-            // Use Handler to delay dialog to allow focus transitions to finish
             Handler(Looper.getMainLooper()).postDelayed({
                 processScanResult(result.contents)
             }, 500)
@@ -97,13 +98,19 @@ class StockManagementFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        adapter = StockAdapter(viewModel.stockItems) { item ->
-            if (hasBluetoothPermission()) {
-                printQrCode(item)
-            } else {
-                requestBluetoothPermission()
+        adapter = StockAdapter(
+            items = viewModel.stockItems,
+            onPrintQrClick = { item ->
+                if (hasBluetoothPermission()) {
+                    printQrCode(item)
+                } else {
+                    requestBluetoothPermission()
+                }
+            },
+            onEditClick = { item ->
+                showEditItemDialog(item)
             }
-        }
+        )
         binding.recyclerViewStock.adapter = adapter
 
         setupFabMenu()
@@ -161,7 +168,7 @@ class StockManagementFragment : Fragment() {
         options.setPrompt("Scan Item QR Code")
         options.setBeepEnabled(false)
         options.setBarcodeImageEnabled(true)
-        options.setOrientationLocked(true) // Lock orientation to prevent reset
+        options.setOrientationLocked(true)
         barcodeLauncher.launch(options)
     }
 
@@ -261,7 +268,7 @@ class StockManagementFragment : Fragment() {
                 socket.connect()
 
                 val output = socket.outputStream
-                output.write(byteArrayOf(0x1B, 0x40)) // Init
+                output.write(byteArrayOf(0x1B, 0x40))
                 Thread.sleep(150)
 
                 val qrData = JSONObject().apply { put("id", item.id); put("name", item.name) }.toString()
@@ -269,7 +276,7 @@ class StockManagementFragment : Fragment() {
                 
                 if (qrBitmap != null) {
                     val command = decodeBitmap(qrBitmap)
-                    output.write(byteArrayOf(0x1B, 0x61, 0x01)) // Center
+                    output.write(byteArrayOf(0x1B, 0x61, 0x01))
                     
                     val chunkSize = 512
                     var offset = 0
@@ -281,12 +288,12 @@ class StockManagementFragment : Fragment() {
                         Thread.sleep(60)
                     }
                     
-                    output.write(byteArrayOf(0x0A)) // LF
-                    output.write(byteArrayOf(0x1B, 0x61, 0x00)) // Left
+                    output.write(byteArrayOf(0x0A))
+                    output.write(byteArrayOf(0x1B, 0x61, 0x00))
                     output.write("${item.name}\nID: ${item.id}\n\n\n".toByteArray())
                 }
 
-                output.write(byteArrayOf(0x1B, 0x40)) // Final Reset
+                output.write(byteArrayOf(0x1B, 0x40))
                 output.flush()
                 Thread.sleep(1500)
                 socket.close()

@@ -57,6 +57,13 @@
                 android:text="Print QR"
                 style="@style/Widget.MaterialComponents.Button.TextButton" />
 
+            <Button
+                android:id="@+id/buttonEditItem"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Edit"
+                style="@style/Widget.MaterialComponents.Button.TextButton" />
+
         </LinearLayout>
 
     </LinearLayout>
