@@ -50,19 +50,23 @@
                 android:layout_marginEnd="16dp"
                 android:text="Price: 0.00" />
 
-            <Button
+            <ImageButton
                 android:id="@+id/buttonPrintQr"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Print QR"
-                style="@style/Widget.MaterialComponents.Button.TextButton" />
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@drawable/ic_print"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Print QR"
+                app:tint="?attr/colorOnSurface" />
 
-            <Button
+            <ImageButton
                 android:id="@+id/buttonEditItem"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Edit"
-                style="@style/Widget.MaterialComponents.Button.TextButton" />
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@drawable/ic_edit"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Edit"
+                app:tint="?attr/colorOnSurface" />
 
         </LinearLayout>
 

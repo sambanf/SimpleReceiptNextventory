@@ -266,36 +266,47 @@ class StockManagementFragment : Fragment() {
                 val device = bluetoothManager.adapter?.getRemoteDevice(printerAddress) ?: return@thread
                 val socket = device.createRfcommSocketToServiceRecord(printerUUID)
                 socket.connect()
-
                 val output = socket.outputStream
-                output.write(byteArrayOf(0x1B, 0x40))
-                Thread.sleep(150)
+
+                // 1. HARD RESET & MODE SETUP
+                output.write(byteArrayOf(0x1B, 0x40)) // ESC @
+                output.write(byteArrayOf(0x1C, 0x2E)) // FS . (Cancel Chinese mode)
+                output.write(byteArrayOf(0x1B, 0x74, 0x00)) // Codepage 437
+                Thread.sleep(300)
 
                 val qrData = JSONObject().apply { put("id", item.id); put("name", item.name) }.toString()
                 val qrBitmap = generateQrCode(qrData, 256)
                 
                 if (qrBitmap != null) {
                     val command = decodeBitmap(qrBitmap)
-                    output.write(byteArrayOf(0x1B, 0x61, 0x01))
+                    output.write(byteArrayOf(0x1B, 0x61, 0x01)) // Center
                     
-                    val chunkSize = 512
+                    val chunkSize = 256
                     var offset = 0
                     while (offset < command.size) {
                         val length = minOf(chunkSize, command.size - offset)
                         output.write(command, offset, length)
-                        output.flush()
                         offset += length
-                        Thread.sleep(60)
+                        Thread.sleep(100)
                     }
-                    
-                    output.write(byteArrayOf(0x0A))
-                    output.write(byteArrayOf(0x1B, 0x61, 0x00))
-                    output.write("${item.name}\nID: ${item.id}\n\n\n".toByteArray())
+                    output.write(byteArrayOf(0x0A, 0x0A))
+                    output.flush()
+                    Thread.sleep(600)
                 }
 
-                output.write(byteArrayOf(0x1B, 0x40))
+                // 2. RECOVERY RESET
+                output.write(byteArrayOf(0x18)) // CAN
+                output.write(byteArrayOf(0x1B, 0x40)) // ESC @
+                Thread.sleep(300)
+
+                // 3. TEXT DESCRIPTION
+                output.write(byteArrayOf(0x1B, 0x61, 0x01)) // Center
+                val desc = "${item.name}\r\nID: ${item.id}\r\n\r\n\r\n\r\n\r\n"
+                output.write(desc.toByteArray(Charsets.US_ASCII))
+
+                output.write(byteArrayOf(0x1B, 0x40)) // Final Reset
                 output.flush()
-                Thread.sleep(1500)
+                Thread.sleep(2000)
                 socket.close()
             } catch (e: Exception) {
                 requireActivity().runOnUiThread { Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show() }
@@ -322,12 +333,10 @@ class StockManagementFragment : Fragment() {
         val widthInBytes = (width + 7) / 8
         val bwPx = IntArray(width * height)
         bmp.getPixels(bwPx, 0, width, 0, 0, width, height)
-
         val data = mutableListOf<Byte>()
         data.add(0x1D.toByte()); data.add(0x76.toByte()); data.add(0x30.toByte()); data.add(0.toByte())
         data.add((widthInBytes % 256).toByte()); data.add((widthInBytes / 256).toByte())
         data.add((height % 256).toByte()); data.add((height / 256).toByte())
-
         for (i in 0 until height) {
             for (j in 0 until widthInBytes) {
                 var byteVal = 0
